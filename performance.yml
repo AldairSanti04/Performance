@@ -1,0 +1,78 @@
+config:
+  target: "https://api.todoist.com"
+  plugins:
+    expect: {}
+  phases:
+    - duration: 10
+      arrivalRate: 1
+      name: "Phase 1"
+  defaults:
+    headers:
+      Authorization: Bearer {{ processEnvironment.TOKEN }}
+      Content-type: application/json
+      X-Requested-Id: $(uuidgen)
+  processor: "./fakedata.js"
+scenarios:
+  - flow:
+      - function: "randomData"
+## CREATE NEW TASK
+      - post:
+          url: "/rest/v1/tasks"
+          json:
+            content: "{{ randomContent }}"
+            due_date: "{{ dateFormat }}"
+            due_lang: "en"
+            priority: 4
+          capture:
+            - json: "$.id"
+              as: "idTask"
+            - json: "$.content"
+              as: "taskContent"
+          expect:
+            - statusCode: 200
+      - log: "TASK CREATED {{ taskContent }}."
+## GET ACTIVE TASKS
+      - get:
+          url: "/rest/v1/tasks"
+          expect:
+            - statusCode: 200
+      - log: "GET TASKS COMPLETED"
+## GET AN ACTIVE TASK
+      - get:
+          url: "/rest/v1/tasks/{{ idTask }}"
+          capture:
+            - json: "$.id"
+              as: "activeIdTask"
+          expect:
+            - statusCode: 200
+            - contentType: json
+            - equals:
+              - {{ idTask }}
+              - {{ activeIdTask }}
+      - log: "Task Id is correct {{ activeIdTask }}"
+## UPDATE A TASK
+      - post:
+          url: "/rest/v1/tasks/{{ idTask }}"
+          json:
+            content: "NEW VALUE"
+          expect:
+            - statusCode: 204
+      - log: "TASK UPDATED"
+## CLOSE TASK
+      - post:
+          url: "/rest/v1/tasks/{{ idTask }}/close"
+          expect:
+            - statusCode: 204
+      - log: "TASK CLOSED"
+## REOPEN TASK
+      - post:
+          url: "/rest/v1/tasks/{{ idTask }}/reopen"
+          expect:
+            - statusCode: 204
+      - log: "TASK REOPENED"
+## DELETE TASK
+      - delete:
+          url: "/rest/v1/tasks/{{ idTask }}"
+          expect:
+            - statusCode: 204
+      - log: "TASK DELETED"
